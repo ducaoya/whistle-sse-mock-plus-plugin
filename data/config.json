@@ -1,0 +1,80 @@
+{
+  "configs": {
+    "default": {
+      "description": "默认 SSE 配置",
+      "messages": [
+        {
+          "data": "Hello SSE!",
+          "delay": 1000
+        },
+        {
+          "data": "This is mock data",
+          "delay": 1000
+        },
+        {
+          "data": "[DONE]",
+          "delay": 0
+        }
+      ],
+      "loop": false
+    },
+    "chatgpt": {
+      "description": "ChatGPT 风格 SSE 响应",
+      "messages": [
+        {
+          "data": "{\"choices\":[{\"delta\":{\"content\":\"你\"}}]}",
+          "delay": 100
+        },
+        {
+          "data": "{\"choices\":[{\"delta\":{\"content\":\"好\"}}]}",
+          "delay": 100
+        },
+        {
+          "data": "{\"choices\":[{\"delta\":{\"content\":\"！\"}}]}",
+          "delay": 100
+        },
+        {
+          "data": "[DONE]",
+          "delay": 0
+        }
+      ],
+      "loop": false
+    },
+    "with-events": {
+      "description": "带事件类型的配置",
+      "messages": [
+        {
+          "event": "start",
+          "data": "开始",
+          "delay": 0
+        },
+        {
+          "event": "message",
+          "data": "消息内容",
+          "delay": 500
+        },
+        {
+          "event": "end",
+          "data": "结束",
+          "delay": 500
+        }
+      ],
+      "loop": false
+    },
+    "sse_stream": {
+      "description": "本地 jsonl 文件回放（D:\\download\\sse_stream(1).jsonl）",
+      "loop": false,
+      "file": "D:\\download\\sse_stream(1).jsonl",
+      "format": "jsonl",
+      "interval": 20,
+      "messages": [],
+      "name": "sse_stream"
+    }
+  },
+  "cors": {
+    "allowOrigins": [
+      "*.wps.cn",
+      "*.wps.com"
+    ]
+  }
+}

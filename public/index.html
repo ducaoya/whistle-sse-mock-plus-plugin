@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SSE Mock 配置</title>
+  <style>
+    :root {
+      --bg: #f5f6f8;
+      --card: #ffffff;
+      --border: #e2e5ea;
+      --primary: #3b82f6;
+      --primary-hover: #2563eb;
+      --danger: #ef4444;
+      --text: #1f2937;
+      --muted: #6b7280;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      padding: 20px;
+      font-size: 14px;
+    }
+    h1 { font-size: 20px; margin-bottom: 16px; }
+    .layout { display: flex; gap: 16px; align-items: flex-start; }
+    .sidebar {
+      width: 220px;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px;
+      flex-shrink: 0;
+    }
+    .sidebar h2 { font-size: 14px; margin-bottom: 8px; }
+    .config-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 8px 10px;
+      border-radius: 6px;
+      cursor: pointer;
+      margin-bottom: 4px;
+    }
+    .config-item:hover { background: #f0f4ff; }
+    .config-item.active { background: #e0eaff; font-weight: 600; }
+    .config-item .del { color: var(--muted); border: none; background: none; cursor: pointer; font-size: 16px; }
+    .config-item .del:hover { color: var(--danger); }
+    .btn {
+      display: inline-block;
+      padding: 8px 16px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      background: var(--card);
+      cursor: pointer;
+      font-size: 14px;
+    }
+    .btn-primary { background: var(--primary); color: #fff; border-color: var(--primary); }
+    .btn-primary:hover { background: var(--primary-hover); }
+    .btn-danger { color: var(--danger); border-color: var(--danger); }
+    .btn-block { width: 100%; }
+    .main { flex: 1; background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 20px; }
+    .field { margin-bottom: 16px; }
+    .field label { display: block; margin-bottom: 6px; font-weight: 600; }
+    .field input[type="text"], .field input[type="number"], .field textarea {
+      width: 100%;
+      padding: 8px 10px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      font-size: 14px;
+      font-family: inherit;
+    }
+    .msg-row {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+    .msg-row input { padding: 8px 10px; border: 1px solid var(--border); border-radius: 6px; font-size: 13px; font-family: inherit; }
+    .msg-row .grow { flex: 1; }
+    .msg-row .num { width: 90px; }
+    .msg-row .event { width: 100px; }
+    .msg-row .rm { color: var(--danger); border: none; background: none; cursor: pointer; font-size: 16px; }
+    .hint { color: var(--muted); font-size: 12px; margin-top: 4px; }
+    .actions { display: flex; gap: 8px; margin-top: 16px; }
+    .toast {
+      position: fixed; top: 16px; right: 16px;
+      background: #16a34a; color: #fff;
+      padding: 10px 16px; border-radius: 6px;
+      opacity: 0; transition: opacity .3s; pointer-events: none;
+    }
+    .toast.show { opacity: 1; }
+    .toast.error { background: var(--danger); }
+    .empty { color: var(--muted); text-align: center; padding: 40px 0; }
+    .cors-row { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; }
+    .cors-row input { flex: 1; padding: 8px 10px; border: 1px solid var(--border); border-radius: 6px; font-size: 13px; font-family: inherit; }
+    .cors-row .rm { color: var(--danger); border: none; background: none; cursor: pointer; font-size: 16px; }
+  </style>
+</head>
+<body>
+  <h1>SSE Mock 配置</h1>
+  <div class="layout">
+    <aside class="sidebar">
+      <h2>配置列表</h2>
+      <div id="configList"></div>
+      <button class="btn btn-block" id="btnNew" style="margin-top:8px;">+ 新建配置</button>
+      <button class="btn btn-block" id="btnCors" style="margin-top:8px;">跨域设置</button>
+    </aside>
+    <main class="main">
+      <div id="editor"></div>
+    </main>
+  </div>
+  <div class="toast" id="toast"></div>
+
+  <script>
+    let configs = {};
+    let currentName = null;
+    let editingMessages = [];
+    let editingFile = '';
+    let editingFormat = 'text';
+    let editingInterval = 1000;
+    let corsOrigins = [];
+
+    const $configList = document.getElementById('configList');
+    const $editor = document.getElementById('editor');
+    const $toast = document.getElementById('toast');
+
+    function toast(msg, isError) {
+      $toast.textContent = msg;
+      $toast.className = 'toast show' + (isError ? ' error' : '');
+      setTimeout(() => { $toast.className = 'toast'; }, 2000);
+    }
+
+    async function api(url, options) {
+      const res = await fetch(url, options);
+      return res.json();
+    }
+
+    async function loadConfigs() {
+      const r = await api('./api/configs');
+      configs = r.data || {};
+      renderList();
+    }
+
+    function renderList() {
+      const names = Object.keys(configs);
+      $configList.innerHTML = '';
+      if (!names.length) {
+        $configList.innerHTML = '<div class="empty">暂无配置</div>';
+      }
+      names.forEach((name) => {
+        const item = document.createElement('div');
+        item.className = 'config-item' + (name === currentName ? ' active' : '');
+        const label = document.createElement('span');
+        label.textContent = name;
+        const del = document.createElement('button');
+        del.className = 'del';
+        del.textContent = '×';
+        del.title = '删除';
+        del.onclick = async (e) => {
+          e.stopPropagation();
+          if (!confirm('确认删除配置 "' + name + '"？')) return;
+          await api('./api/config/' + encodeURIComponent(name), { method: 'DELETE' });
+          if (currentName === name) { currentName = null; $editor.innerHTML = ''; }
+          await loadConfigs();
+          toast('删除成功');
+        };
+        item.appendChild(label);
+        item.appendChild(del);
+        item.onclick = () => openEditor(name);
+        $configList.appendChild(item);
+      });
+    }
+
+    function openEditor(name) {
+      currentName = name;
+      const c = configs[name] || { messages: [], loop: false };
+      editingMessages = (c.messages || []).map((m) => ({ ...m }));
+      // 文件模式字段
+      editingFile = c.file || '';
+      editingFormat = c.format || 'text';
+      editingInterval = c.interval !== undefined ? c.interval : 1000;
+      renderList();
+      renderEditor(c);
+    }
+
+    function renderEditor(c) {
+      const description = c.description || '';
+      const loop = c.loop ? 'checked' : '';
+      const isFileMode = !!editingFile;
+
+      let rows = editingMessages.map((m, i) => {
+        const data = m.data !== undefined ? m.data : '';
+        const event = m.event || '';
+        const id = m.id !== undefined ? m.id : '';
+        const delay = m.delay !== undefined ? m.delay : '';
+        return '<div class="msg-row">' +
+          '<input class="event" data-i="' + i + '" data-k="event" placeholder="event" value="' + escapeHtml(event) + '" />' +
+          '<input class="num" data-i="' + i + '" data-k="id" placeholder="id" value="' + escapeHtml(id) + '" />' +
+          '<input class="grow" data-i="' + i + '" data-k="data" placeholder="data（必填）" value="' + escapeHtml(data) + '" />' +
+          '<input class="num" type="number" data-i="' + i + '" data-k="delay" placeholder="delay(ms)" value="' + escapeHtml(delay) + '" />' +
+          '<button class="rm" data-i="' + i + '">×</button>' +
+          '</div>';
+      }).join('');
+
+      $editor.innerHTML =
+        '<div class="field"><label>配置名称</label><input type="text" id="fName" value="' + escapeHtml(currentName) + '" disabled /></div>' +
+        '<div class="field"><label>描述</label><input type="text" id="fDesc" value="' + escapeHtml(description) + '" /></div>' +
+
+        '<div class="field"><label>数据来源</label>' +
+        '<select id="fMode">' +
+        '<option value="messages"' + (isFileMode ? '' : ' selected') + '>配置消息列表</option>' +
+        '<option value="file"' + (isFileMode ? ' selected' : '') + '>本地文件</option>' +
+        '</select></div>' +
+
+        '<div id="filePanel" style="display:' + (isFileMode ? 'block' : 'none') + ';">' +
+        '<div class="field"><label>文件路径</label><input type="text" id="fFile" placeholder="如 D:\\download\\sse_stream(1).jsonl 或 ./data/example.txt" value="' + escapeHtml(editingFile) + '" />' +
+        '<div class="hint">相对路径基于插件根目录解析</div></div>' +
+        '<div class="field"><label>文件格式</label><select id="fFormat">' +
+        '<option value="text"' + (editingFormat === 'text' ? ' selected' : '') + '>text（每行一条 data）</option>' +
+        '<option value="jsonl"' + (editingFormat === 'jsonl' ? ' selected' : '') + '>jsonl（每行 JSON，取 chunk 字段）</option>' +
+        '</select></div>' +
+        '<div class="field"><label>间隔时间(ms)</label><input type="number" id="fInterval" value="' + escapeHtml(editingInterval) + '" /></div>' +
+        '</div>' +
+
+        '<div id="msgPanel" style="display:' + (isFileMode ? 'none' : 'block') + ';">' +
+        '<div class="field"><label>消息列表</label>' +
+        (rows || '<div class="empty">暂无消息，点击下方按钮添加</div>') +
+        '<div class="hint">字段顺序：event | id | data | delay(ms)。data 必填，delay 默认 1000ms。</div>' +
+        '<button class="btn" id="btnAddMsg" style="margin-top:8px;">+ 添加消息</button></div>' +
+        '</div>' +
+
+        '<div class="field"><label><input type="checkbox" id="fLoop" ' + loop + ' /> 循环播放</label></div>' +
+        '<div class="actions">' +
+        '<button class="btn btn-primary" id="btnSave">保存</button>' +
+        '<button class="btn" id="btnPreview">预览测试</button>' +
+        '</div>' +
+        '<div class="field" style="margin-top:16px;"><label>预览输出</label><pre id="previewOut" style="background:#f9fafb;border:1px solid var(--border);border-radius:6px;padding:12px;min-height:60px;white-space:pre-wrap;word-break:break-all;"></pre></div>';
+
+      const modeSel = document.getElementById('fMode');
+      modeSel.onchange = () => {
+        const fileMode = modeSel.value === 'file';
+        document.getElementById('filePanel').style.display = fileMode ? 'block' : 'none';
+        document.getElementById('msgPanel').style.display = fileMode ? 'none' : 'block';
+      };
+
+      document.getElementById('fFile').oninput = (e) => { editingFile = e.target.value; };
+      document.getElementById('fFormat').onchange = (e) => { editingFormat = e.target.value; };
+      document.getElementById('fInterval').oninput = (e) => {
+        const v = parseInt(e.target.value, 10);
+        editingInterval = isNaN(v) ? 1000 : v;
+      };
+
+      document.getElementById('btnAddMsg').onclick = () => {
+        editingMessages.push({ data: '', delay: 1000 });
+        renderEditor(configs[currentName] || {});
+      };
+      document.getElementById('btnSave').onclick = saveCurrent;
+      document.getElementById('btnPreview').onclick = previewCurrent;
+
+      // 绑定消息输入与删除
+      document.querySelectorAll('.msg-row input').forEach((input) => {
+        input.oninput = () => {
+          const i = parseInt(input.dataset.i, 10);
+          const k = input.dataset.k;
+          if (k === 'delay') {
+            const v = input.value === '' ? undefined : parseInt(input.value, 10);
+            editingMessages[i].delay = isNaN(v) ? undefined : v;
+          } else {
+            editingMessages[i][k] = input.value;
+          }
+        };
+      });
+      document.querySelectorAll('.msg-row .rm').forEach((btn) => {
+        btn.onclick = () => {
+          editingMessages.splice(parseInt(btn.dataset.i, 10), 1);
+          renderEditor(configs[currentName] || {});
+        };
+      });
+    }
+
+    async function saveCurrent() {
+      const name = currentName;
+      if (!name) return;
+      const description = document.getElementById('fDesc').value;
+      const loop = document.getElementById('fLoop').checked;
+      const mode = document.getElementById('fMode').value;
+
+      let body = { name, description, loop };
+      if (mode === 'file') {
+        body.file = document.getElementById('fFile').value.trim();
+        body.format = document.getElementById('fFormat').value;
+        body.interval = parseInt(document.getElementById('fInterval').value, 10);
+        if (isNaN(body.interval)) body.interval = 1000;
+        if (!body.file) { toast('请填写文件路径', true); return; }
+        body.messages = editingMessages;
+      } else {
+        body.messages = editingMessages;
+      }
+
+      const r = await api('./api/config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+      if (r.success) {
+        configs[name] = body;
+        editingFile = body.file || '';
+        editingFormat = body.format || 'text';
+        editingInterval = body.interval !== undefined ? body.interval : 1000;
+        toast('保存成功');
+        renderList();
+      } else {
+        toast(r.error || '保存失败', true);
+      }
+    }
+
+    async function previewCurrent() {
+      const out = document.getElementById('previewOut');
+      out.textContent = '';
+      const mode = document.getElementById('fMode').value;
+      const delay = (ms) => new Promise((r) => setTimeout(r, ms));
+
+      let list = [];
+      let interval = 0;
+
+      if (mode === 'file') {
+        // 文件模式：请求后端解析文件
+        const file = document.getElementById('fFile').value.trim();
+        const format = document.getElementById('fFormat').value;
+        interval = parseInt(document.getElementById('fInterval').value, 10);
+        if (isNaN(interval)) interval = 1000;
+        if (!file) { out.textContent = '请填写文件路径'; return; }
+
+        out.textContent = '正在读取文件...';
+        const r = await api('./api/preview-file', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ file, format, interval })
+        });
+        if (!r.success) { out.textContent = r.error || '读取失败'; return; }
+        list = r.data.messages || [];
+      } else {
+        list = editingMessages;
+      }
+
+      // 输出消息
+      out.textContent = '';
+      for (const m of list) {
+        const d = m.delay !== undefined && m.delay > 0 ? m.delay : 0;
+        if (d > 0) await delay(d);
+        let s = '';
+        if (m.raw !== undefined && m.raw !== null) {
+          s = String(m.raw);
+        } else {
+          if (m.event) s += 'event: ' + m.event + '\n';
+          if (m.id !== undefined && m.id !== null && m.id !== '') s += 'id: ' + m.id + '\n';
+          s += 'data: ' + (m.data !== undefined ? m.data : '') + '\n\n';
+        }
+        out.textContent += s;
+      }
+    }
+
+    function escapeHtml(str) {
+      return String(str == null ? '' : str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
+
+    document.getElementById('btnNew').onclick = async () => {
+      const name = prompt('请输入新配置名称：');
+      if (!name || !name.trim()) return;
+      const trimmed = name.trim();
+      if (configs[trimmed]) { toast('配置已存在', true); return; }
+      configs[trimmed] = { name: trimmed, description: '', messages: [], loop: false };
+      openEditor(trimmed);
+    };
+
+    // 跨域设置
+    document.getElementById('btnCors').onclick = () => {
+      renderCorsPanel();
+    };
+
+    async function loadCors() {
+      const r = await api('./api/cors');
+      return r.data || { allowOrigins: [] };
+    }
+
+    async function renderCorsPanel() {
+      const data = await loadCors();
+      // 仅在首次打开（数组为空）时从后端加载，避免点击「添加」后重新覆盖本地编辑
+      if (!corsOrigins.length) {
+        corsOrigins = Array.isArray(data.allowOrigins) ? data.allowOrigins.slice() : [];
+      }
+
+      const originRows = corsOrigins.map((o, i) => {
+        return '<div class="cors-row">' +
+          '<input data-i="' + i + '" value="' + escapeHtml(o) + '" placeholder="如 *.example.com 或 https://a.example.com" />' +
+          '<button class="rm" data-i="' + i + '">×</button>' +
+          '</div>';
+      }).join('');
+
+      $editor.innerHTML =
+        '<div class="field"><label>跨域白名单（Access-Control-Allow-Origin）</label>' +
+        (originRows || '<div class="empty">暂无规则</div>') +
+        '<div class="hint">支持 *、*.example.com、example.com、https://a.example.com。留空则不返回跨域允许头。</div>' +
+        '<button class="btn" id="btnAddOrigin" style="margin-top:8px;">+ 添加域名</button></div>' +
+        '<div class="actions">' +
+        '<button class="btn btn-primary" id="btnSaveCors">保存</button>' +
+        '<button class="btn" id="btnBackCors">返回</button>' +
+        '</div>';
+
+      document.getElementById('btnAddOrigin').onclick = () => {
+        corsOrigins.push('');
+        renderCorsPanel();
+      };
+
+      document.querySelectorAll('.cors-row input').forEach((input) => {
+        input.oninput = () => {
+          corsOrigins[parseInt(input.dataset.i, 10)] = input.value;
+        };
+      });
+      document.querySelectorAll('.cors-row .rm').forEach((btn) => {
+        btn.onclick = () => {
+          corsOrigins.splice(parseInt(btn.dataset.i, 10), 1);
+          renderCorsPanel();
+        };
+      });
+
+      document.getElementById('btnSaveCors').onclick = async () => {
+        const originList = corsOrigins.map((o) => o.trim()).filter((o) => o.length > 0);
+        const r = await api('./api/cors', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ allowOrigins: originList })
+        });
+        if (r.success) {
+          toast('保存成功');
+        } else {
+          toast(r.error || '保存失败', true);
+        }
+      };
+
+      document.getElementById('btnBackCors').onclick = () => {
+        // 清空缓存，下次打开时重新加载
+        corsOrigins = [];
+        if (currentName) { openEditor(currentName); }
+        else { $editor.innerHTML = ''; renderList(); }
+      };
+    }
+
+    loadConfigs();
+  </script>
+</body>
+</html>

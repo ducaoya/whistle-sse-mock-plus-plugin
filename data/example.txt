@@ -1,0 +1,6 @@
+这是第一行数据
+这是第二行数据
+这是第三行数据
+{"choices":[{"delta":{"content":"流式"}}]}
+{"choices":[{"delta":{"content":"输出"}}]}
+[DONE]

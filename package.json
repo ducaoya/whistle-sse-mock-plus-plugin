@@ -1,0 +1,31 @@
+{
+  "name": "whistle.sse-mock",
+  "version": "1.0.0",
+  "description": "Whistle 插件 - 模拟 SSE (Server-Sent Events) 流数据，支持通过配置或文件逐行分多段返回",
+  "main": "index.js",
+  "scripts": {
+    "test": "node test/sse.test.js"
+  },
+  "keywords": [
+    "whistle",
+    "whistle-plugin",
+    "plugin",
+    "sse",
+    "server-sent-events",
+    "mock",
+    "stream"
+  ],
+  "license": "MIT",
+  "engines": {
+    "node": ">=12.0.0"
+  },
+  "whistleConfig": {
+    "priority": 0,
+    "hintList": [
+      "sse-mock://",
+      "sse-mock://default",
+      "sse-mock://{configName}",
+      "sse-mock://file:./data/example.txt,1000"
+    ]
+  }
+}
