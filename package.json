@@ -1,11 +1,18 @@
 {
-  "name": "whistle.sse-mock",
+  "name": "whistle.sse-mock-plus",
   "version": "1.0.0",
   "description": "Whistle 插件 - 模拟 SSE (Server-Sent Events) 流数据，支持通过配置或文件逐行分多段返回",
   "main": "index.js",
   "scripts": {
     "test": "node test/sse.test.js"
   },
+  "files": [
+    "index.js",
+    "lib/",
+    "public/",
+    "data/",
+    "README.md"
+  ],
   "keywords": [
     "whistle",
     "whistle-plugin",
