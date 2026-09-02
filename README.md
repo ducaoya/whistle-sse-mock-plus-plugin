@@ -1,10 +1,10 @@
-# whistle.sse-mock
+# whistle.sse-mock-plus
 
 一个用于模拟 SSE (Server-Sent Events) 流数据的 Whistle 插件。
 
 ## 功能特点
 
-- 🎯 **配置模式**：参考 `whistle.sse-mock` 的格式，通过 JSON 配置多条消息，每条消息可设置延迟时间，分多段返回
+- 🎯 **配置模式**：通过 JSON 配置多条消息，每条消息可设置延迟时间，分多段返回
 - 📄 **文件模式**：指定本地文件，逐行读取，每次返回一行，并支持统一的间隔时间；支持 `.jsonl` 格式（取 `chunk` 字段作为完整 SSE 帧）
 - 📝 **完整 SSE 支持**：支持 `event`、`id`、`data` 等 SSE 字段
 - 🔁 **循环播放**：支持消息循环播放模式
@@ -14,7 +14,7 @@
 ## 安装
 
 ```bash
-npm i -g whistle.sse-mock
+npm i -g whistle.sse-mock-plus
 ```
 
 或在 Whistle 界面 Plugins 标签页中安装。
@@ -179,7 +179,7 @@ api.example.com/sse/stream sse-mock://sse_stream
 ## 目录结构
 
 ```
-whistle-sse-mock/
+whistle-sse-mock-plus/
 ├── package.json
 ├── index.js           # 插件入口（导出 server、uiServer）
 ├── lib/
