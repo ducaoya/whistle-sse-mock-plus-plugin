@@ -1,6 +1,6 @@
 {
   "name": "whistle.sse-mock-plus",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Whistle plugin that mocks requests as SSE streams: JSON messages with delays, line-by-line file replay (.jsonl), event/id/data fields, loop mode and a web UI.",
   "main": "index.js",
   "scripts": {
