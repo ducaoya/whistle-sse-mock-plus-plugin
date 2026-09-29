@@ -1,7 +1,7 @@
 {
   "name": "whistle.sse-mock-plus",
   "version": "1.0.1",
-  "description": "Whistle 插件 - 模拟 SSE (Server-Sent Events) 流数据，支持通过配置或文件逐行分多段返回",
+  "description": "Whistle plugin that mocks requests as SSE streams: JSON messages with delays, line-by-line file replay (.jsonl), event/id/data fields, loop mode and a web UI.",
   "main": "index.js",
   "scripts": {
     "test": "node test/sse.test.js"
